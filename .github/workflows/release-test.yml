@@ -1,0 +1,21 @@
+name: Publish test release
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify archive hash
+        run: |
+          echo "0b6274249acd0575d9c0517de489fd8d9938516cfcd0663fe9f2fe0536e71485  CatalinaUpgrade-test-1.zip" | sha256sum -c -
+      - name: Create prerelease test-1 with the verified archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create test-1 CatalinaUpgrade-test-1.zip \
+            --prerelease \
+            --title "Catalina Upgrade test-1" \
+            --notes "Distro one-click upgrade tooling — test build. MacBookAir5,2 (13-inch, Mid 2012): High Sierra 10.13.6 to Catalina 10.15.7 on a new APFS volume; High Sierra volume never overwritten. Archive SHA-256 0b6274249acd0575d9c0517de489fd8d9938516cfcd0663fe9f2fe0536e71485 (verified in this workflow before publish). Unsigned test build; S4 rig verification on the owner's Air stays OPEN."
