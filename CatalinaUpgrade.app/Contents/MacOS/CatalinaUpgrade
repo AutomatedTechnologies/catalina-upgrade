@@ -1,0 +1,7 @@
+#!/bin/bash
+# CatalinaUpgrade — Detroit Automation Academy wrapper executable.
+# Opens the bundled Upgrade-to-Catalina.command in Terminal. The
+# command resolves its own directory from $0 and finds
+# installinstallmacos.py beside it in Resources.
+RES="$(cd "$(dirname "$0")/../Resources" && pwd)"
+open -a Terminal "$RES/Upgrade-to-Catalina.command"
