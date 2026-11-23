@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>macOS Catalina Upgrade</string>
+	<key>CFBundleExecutable</key>
+	<string>CatalinaUpgrade</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.detroitautomationacademy.catalina-upgrade</string>
+	<key>CFBundleName</key>
+	<string>macOS Catalina Upgrade</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>test-2</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>10.13.0</string>
+	<key>com.detroitautomationacademy.audit</key>
+	<dict>
+		<key>Authority</key>
+		<string>Detroit Automation Academy</string>
+		<key>Date</key>
+		<string>2026-11-23</string>
+		<key>Disassembled</key>
+		<true/>
+		<key>Recompiled</key>
+		<true/>
+		<key>Scanned</key>
+		<true/>
+	</dict>
+</dict>
+</plist>
