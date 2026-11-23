@@ -10,12 +10,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify archive hash
         run: |
-          echo "0b6274249acd0575d9c0517de489fd8d9938516cfcd0663fe9f2fe0536e71485  CatalinaUpgrade-test-1.zip" | sha256sum -c -
-      - name: Create prerelease test-1 with the verified archive
+          echo "1ed8a767b136980da9240e88767440322438cdcab424fc377373ebfe00e5b3e4  CatalinaUpgrade-test-2.zip" | sha256sum -c -
+      - name: Create prerelease test-2 with the verified archive
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create test-1 CatalinaUpgrade-test-1.zip \
+          gh release create test-2 CatalinaUpgrade-test-2.zip \
             --prerelease \
-            --title "Catalina Upgrade test-1" \
-            --notes "Distro one-click upgrade tooling — test build. MacBookAir5,2 (13-inch, Mid 2012): High Sierra 10.13.6 to Catalina 10.15.7 on a new APFS volume; High Sierra volume never overwritten. Archive SHA-256 0b6274249acd0575d9c0517de489fd8d9938516cfcd0663fe9f2fe0536e71485 (verified in this workflow before publish). Unsigned test build; S4 rig verification on the owner's Air stays OPEN."
+            --title "Catalina Upgrade test-2" \
+            --notes "Distro one-click upgrade tooling — test build. MacBookAir5,2 (13-inch, Mid 2012): High Sierra 10.13.6 to Catalina 10.15.7 on a new APFS volume; High Sierra volume never overwritten. test-2 wraps the tooling in CatalinaUpgrade.app — an Academy bundle carrying the com.detroitautomationacademy.audit Info.plist entry — so DistroInstaller accepts the archive (test-1's loose-files zip stopped at its bundle check). Launcher and fetcher bytes are unchanged from test-1. Archive SHA-256 1ed8a767b136980da9240e88767440322438cdcab424fc377373ebfe00e5b3e4 (verified in this workflow before publish). Unsigned test build; S4 rig verification on the owner's Air stays OPEN."
