@@ -3,6 +3,13 @@
 # Target: macOS Catalina 10.15.7 (official Apple ceiling for MacBookAir5,2)
 # Installs to a NEW APFS volume "Catalina". Never overwrites High Sierra in v1.
 # bash 3.2 compatible (stock macOS). First run = dry run; type ARM to proceed.
+# test-3 repair (2026-11-24, registry changes/0083): the pinned
+# fetcher now carries the Academy patch that adds the --version
+# exact-match selection this launcher has always passed (upstream
+# munki @ ae5d4a8a has no --version; argparse rejected it and the
+# fetch stage could never run), and the fetch hand-off below now
+# stages the installer out of the fetcher's disk image and checks
+# it is the Catalina app before anything is verified or launched.
 set -u
 STATE_DIR="$HOME/Library/Logs/AcademyCatalinaUpgrade"
 STATE="$STATE_DIR/state.txt"
@@ -74,14 +81,35 @@ if [ ! -d "$INSTALLER_APP" ]; then
   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
   if [ -f "$SCRIPT_DIR/installinstallmacos.py" ]; then cp "$SCRIPT_DIR/installinstallmacos.py" ./installinstallmacos.py; fi
   [ -f ./installinstallmacos.py ] || fail "installinstallmacos.py not bundled. Distro build must ship the pinned, hash-verified copy beside this launcher."
-  # Pinned copy verification (PIN.md): munki/macadmin-scripts @ ae5d4a8a, Apache-2.0, (c) Greg Neagle
-  PIN_SHA="4b06e394a2255cca5fea901c5000c9b7a24740e0e3127c952c3f93dff3ca8ebf"
+  # Pinned copy verification (PIN.md): munki/macadmin-scripts @ ae5d4a8a
+  # + Academy patch 2026-11-24 (--version exact-match selection), Apache-2.0, (c) Greg Neagle
+  PIN_SHA="8df321573028266e19bb9d872097c0acf5ea63f0154fc058cd60208cb0a50f38"
   ACTUAL_SHA=$(shasum -a 256 ./installinstallmacos.py | awk '{print $1}')
   [ "$ACTUAL_SHA" = "$PIN_SHA" ] || fail "installinstallmacos.py SHA-256 mismatch (got $ACTUAL_SHA, pinned $PIN_SHA). Refusing to run an unpinned fetcher."
   echo "Gate fetcher-pin: PASS (SHA-256 matches PIN.md)"
   sudo python ./installinstallmacos.py --workdir "$WORK/build" --version "$TARGET_VERSION" || fail "Installer fetch failed."
+  # Hand-off (test-3 repair): the fetcher writes a disk image
+  # Install_macOS_$TARGET_VERSION-<build>.dmg into the workdir; it
+  # does NOT place the app in /Applications. Stage it from the
+  # image, and only if the image's app is exactly the Catalina app.
+  DMG=$(ls "$WORK/build/Install_macOS_${TARGET_VERSION}"-*.dmg 2>/dev/null | head -1)
+  [ -n "$DMG" ] || fail "Fetcher produced no Install_macOS_${TARGET_VERSION} disk image in $WORK/build. Refusing to look anywhere else for an installer."
+  echo "Staging installer from $(basename "$DMG") ..."
+  MOUNT=$(hdiutil attach -readonly -nobrowse "$DMG" 2>/dev/null | awk '/\/Volumes\// {print substr($0, index($0, "/Volumes/"))}' | head -1)
+  [ -n "$MOUNT" ] && [ -d "$MOUNT" ] || fail "Could not mount the fetched installer image."
+  FOUND_APP=$(find "$MOUNT" -maxdepth 2 -name "*.app" -type d 2>/dev/null | head -1)
+  if [ "$FOUND_APP" != "$MOUNT/Install macOS Catalina.app" ]; then
+    hdiutil detach "$MOUNT" >/dev/null 2>&1
+    fail "Fetched image contains '${FOUND_APP##*/}', not 'Install macOS Catalina.app'. Refusing to install any macOS other than Catalina $TARGET_VERSION."
+  fi
+  sudo ditto "$FOUND_APP" "$INSTALLER_APP" || { hdiutil detach "$MOUNT" >/dev/null 2>&1; fail "Could not stage the Catalina installer into /Applications."; }
+  hdiutil detach "$MOUNT" >/dev/null 2>&1 || true
   [ -d "$INSTALLER_APP" ] || fail "Installer app not present after fetch."
 fi
+# This tool only ever uses the Catalina installer at the fixed path
+# above. Any other "Install macOS *.app" in /Applications (for
+# example a Monterey installer) is ignored by design -- never
+# opened, never run.
 echo "Verifying installer signature..."
 codesign --verify --deep --strict "$INSTALLER_APP" || fail "Installer codesign verification FAILED."
 spctl --assess --type execute "$INSTALLER_APP" || fail "Installer Gatekeeper assessment FAILED."
