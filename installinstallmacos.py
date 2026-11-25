@@ -23,6 +23,25 @@ A tool to download the parts for an Install macOS app from Apple's
 softwareupdate servers and install a functioning Install macOS app onto an
 empty disk image'''
 
+# ---------------------------------------------------------------------
+# ACADEMY PATCH -- 2026-11-24 (Detroit Automation Academy; see PIN.md)
+# Base: munki/macadmin-scripts @ ae5d4a8ae782fb82541c686aa860ad0fa2d42c84
+# (unmodified upstream SHA-256
+#  4b06e394a2255cca5fea901c5000c9b7a24740e0e3127c952c3f93dff3ca8ebf).
+# Upstream at that commit has NO --version option: its only selection
+# is an interactive menu, so the Academy launcher's call
+# `--version 10.15.7` was rejected by argparse (exit 2) and the fetch
+# stage of Upgrade-to-Catalina.command could never run (field
+# failures 2026-11-23 test-1 and 2026-11-24 test-2; registry
+# changes/0083). This patch adds exactly the missing interface:
+#   * a --version argument, and
+#   * select_product_for_version(): exact-version match only; among
+#     exact matches the latest PostDate wins; no match -> exit 2
+#     (fail closed; never substitute another version).
+# With --version given, the interactive menu is not presented.
+# Nothing else in upstream behaviour is changed.
+# ---------------------------------------------------------------------
+
 # Python 3 compatibility shims
 from __future__ import (
     absolute_import, division, print_function, unicode_literals)
@@ -544,6 +563,29 @@ def os_installer_product_info(catalog, workdir, ignore_cache=False):
     return product_info
 
 
+def select_product_for_version(product_info, version):
+    '''Academy patch (2026-11-24): deterministic, fail-closed selection.
+
+    Returns the product_id whose recorded version exactly equals
+    `version`. If several products carry that exact version, the one
+    with the latest PostDate wins. If none matches, exit nonzero --
+    never fall back to another version.'''
+    matches = [product_id for product_id in product_info
+               if product_info[product_id].get('version') == version]
+    if not matches:
+        print('No installer product with exact version %s exists in '
+              'this catalog. Refusing to substitute another version.'
+              % version, file=sys.stderr)
+        sys.exit(2)
+    matches.sort(
+        key=lambda product_id: product_info[product_id].get('PostDate'))
+    chosen = matches[-1]
+    print('Selected product %s (version %s, build %s) by exact-version '
+          'pin.' % (chosen, product_info[chosen].get('version'),
+                    product_info[chosen].get('BUILD')))
+    return chosen
+
+
 def replicate_product(catalog, product_id, workdir, ignore_cache=False):
     '''Downloads all the packages for a product'''
     product = catalog['Products'][product_id]
@@ -608,6 +650,12 @@ def main():
                         'less available disk space and is faster.')
     parser.add_argument('--ignore-cache', action='store_true',
                         help='Ignore any previously cached files.')
+    parser.add_argument('--version', default='',
+                        help='Academy patch (2026-11-24): download the '
+                        'installer product whose version exactly matches '
+                        'this string (for example 10.15.7), without an '
+                        'interactive menu. Exits nonzero if no product '
+                        'matches exactly.')
     args = parser.parse_args()
 
     if os.getuid() != 0:
@@ -665,16 +713,20 @@ def main():
             product_info[product_id]['title']
         ))
 
-    answer = get_input(
-        '\nChoose a product to download (1-%s): ' % len(product_info))
-    try:
-        index = int(answer) - 1
-        if index < 0:
-            raise ValueError
-        product_id = list(product_info.keys())[index]
-    except (ValueError, IndexError):
-        print('Exiting.')
-        sys.exit(0)
+    if args.version:
+        # Academy patch (2026-11-24): exact-version selection, no menu.
+        product_id = select_product_for_version(product_info, args.version)
+    else:
+        answer = get_input(
+            '\nChoose a product to download (1-%s): ' % len(product_info))
+        try:
+            index = int(answer) - 1
+            if index < 0:
+                raise ValueError
+            product_id = list(product_info.keys())[index]
+        except (ValueError, IndexError):
+            print('Exiting.')
+            sys.exit(0)
 
     if is_legacy(product_info[product_id].get('title','')):
         # Catalina and earlier do not have InstallAssistant.pkg, and
